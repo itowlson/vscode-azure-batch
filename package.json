@@ -11,7 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:merlin.invokeAllThePythons"
+    "onCommand:merlin.invokeAllThePythons",
+    "onCommand:merlin.itCreatesUsTheJobOrUsKillsItTheKitten"
   ],
   "main": "./out/src/extension",
   "contributes": {
@@ -38,6 +39,7 @@
     "@types/mocha": "^2.2.32",
     "@types/node": "^6.0.40",
     "@types/shelljs": "^0.7.1",
+    "@types/tmp": "0.0.33",
     "@types/websocket": "0.0.33",
     "mocha": "^2.3.3",
     "typescript": "^2.0.3",
@@ -45,6 +47,7 @@
   },
   "dependencies": {
     "websocket": "^1.0.24",
-    "shelljs": "^0.7.7"
+    "shelljs": "^0.7.7",
+    "tmp": "^0.0.31"
   }
 }

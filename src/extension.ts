@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import * as websocket from 'websocket';
 import * as shelljs from 'shelljs';
 import * as fs from 'fs';
+import * as tmp from 'tmp';
 
 import * as path from './path';
 import * as batch from './batch';
@@ -15,13 +16,13 @@ var wshost : any = undefined;
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-    const py = shelljs.which('python');
-    const hostdir = context.asAbsolutePath('src/python-host');
-    wshost = shelljs.exec(`"${py}" main.py`, { cwd: hostdir, async: true });
-    shelljs.exec(`"${py}" --version`);  // TODO: HACK to stall command execution for a while (to allow the websocket server to spin up)
+    // const py = shelljs.which('python');
+    // const hostdir = context.asAbsolutePath('src/python-host');
+    // wshost = shelljs.exec(`"${py}" main.py`, { cwd: hostdir, async: true });
+    // shelljs.exec(`"${py}" --version`);  // TODO: HACK to stall command execution for a while (to allow the websocket server to spin up)
 
     let disposables = [
-        vscode.commands.registerCommand('merlin.invokeAllThePythons', invokeAllThePythons),
+        //vscode.commands.registerCommand('merlin.invokeAllThePythons', invokeAllThePythons),
         vscode.commands.registerCommand('merlin.itCreatesUsTheJobOrUsKillsItTheKitten', createJob)
     ];
 
@@ -39,9 +40,14 @@ function createJob() {
         return;
     }
 
+    createJobImpl(doc);
+}
+
+async function createJobImpl(doc : vscode.TextDocument) {
+
     const jobTemplateInfo = batch.parseJobTemplate(doc.getText());
     if (!jobTemplateInfo) {
-        vscode.window.showErrorMessage('Current file is not an Azure Batch job template.');  // TODO: support job JSON
+        await vscode.window.showErrorMessage('Current file is not an Azure Batch job template.');  // TODO: support job JSON
         return;
     }
 
@@ -54,10 +60,42 @@ function createJob() {
     const hasParametersFile = (parameterFileName !== undefined);
 
     if (doc.isDirty) {
-        doc.save();
+        await doc.save();
     }
-    shelljs.exec(`az batch job create --template ${something} --parameters ${somethingElse}`, { async: true }, (code : number, stdout : string, stderr : string) => {
+
+    const tempFileInfo = hasParametersFile ?  undefined : await createTempParameterFile(jobTemplateInfo);
+
+    const parameterFilePath = (tempFileInfo === undefined) ? parameterFileName : tempFileInfo.path;
+
+    shelljs.exec(`az batch job create --template "${doc.fileName}" --parameters "${parameterFilePath}"`, { async: true }, (code : number, stdout : string, stderr : string) => {
+        if (tempFileInfo) {
+            fs.unlinkSync(tempFileInfo.path);
+        }
+
+        if (code !== 0 || stderr) {  // CLI can return exit code 0 on failure
+            console.log(stderr);
+        }
     });
+
+}
+
+async function createTempParameterFile(jobTemplateInfo : batch.IJobTemplate) : Promise<ITempFileInfo> {
+    let parameterObject : any = {};
+    for (const p of jobTemplateInfo.parameters) {
+        parameterObject[p.name] = { value: p.dataType == 'int' ? 123 : 'something' };
+    }
+
+    const json = JSON.stringify(parameterObject);
+
+    const tempFile = tmp.fileSync();
+    
+    fs.writeFileSync(tempFile.name, json, { encoding: 'utf8' });
+
+    return { path: tempFile.name };
+}
+
+interface ITempFileInfo {
+    readonly path : string;
 }
 
 function invokeAllThePythons() {
