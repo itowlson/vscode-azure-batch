@@ -11,6 +11,7 @@ import * as path from './path';
 import * as batch from './batch';
 
 var wshost : any = undefined;
+var output : vscode.OutputChannel = vscode.window.createOutputChannel('Azure Batch');
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -81,18 +82,21 @@ async function createJobImpl(doc : vscode.TextDocument) {
 
     const parameterFilePath = (tempFileInfo === undefined) ? parameterFileName : tempFileInfo.path;
 
+    output.show();
+    output.appendLine('Creating Azure Batch job...');
+
     shelljs.exec(`az batch job create --template "${doc.fileName}" --parameters "${parameterFilePath}"`, { async: true }, (code : number, stdout : string, stderr : string) => {
         if (tempFileInfo) {
             fs.unlinkSync(tempFileInfo.path);
         }
 
         if (code !== 0 || stderr) {  // CLI can return exit code 0 on failure... but GAH IT WRITES TO STDERR EVEN ON SUCCESS (the experimental feature warnings)
-            console.log(stderr);
+            output.appendLine(stderr);
         } else {
-            console.log(stdout);
+            output.appendLine(stdout);
         }
 
-        console.log("Done");
+        output.appendLine("Done");
     });
 
 }
