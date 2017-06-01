@@ -59,7 +59,7 @@ async function createJobImpl(doc : vscode.TextDocument) {
         templateFileRoot + '.parameters.json',
         templateFileDir + '/parameters.json',
         templateFileDir + '/jobparameters.json',
-        templateFileDir + 'parameters.job.json'
+        templateFileDir + '/parameters.job.json'
     ];
     const parameterFileName = parameterFileNames.find(s => fs.existsSync(s));
 
@@ -91,6 +91,8 @@ async function createJobImpl(doc : vscode.TextDocument) {
         } else {
             console.log(stdout);
         }
+
+        console.log("Done");
     });
 
 }
@@ -118,7 +120,8 @@ async function createTempParameterFile(jobTemplateInfo : batch.IJobTemplate, kno
 
 async function promptForParameterValue(parameter : batch.IJobTemplateParameter) : Promise<any> {
     if (parameter.allowedValues) {
-        return vscode.window.showQuickPick(parameter.allowedValues);
+        const selectedValue = await vscode.window.showQuickPick(parameter.allowedValues.map((v) => quickPickFor(v)));
+        return selectedValue ? selectedValue.value : undefined;
     } else {
         let description = '';
         if (parameter.metadata) {
@@ -126,6 +129,18 @@ async function promptForParameterValue(parameter : batch.IJobTemplateParameter) 
         }
         return await vscode.window.showInputBox({ prompt: `${parameter.name}${description} (${parameter.dataType})` });
     }
+}
+
+function quickPickFor(value : any) : AllowedValueQuickPickItem {
+    return {
+        label: String(value),
+        description: '',
+        value: value
+    };
+}
+
+interface AllowedValueQuickPickItem extends vscode.QuickPickItem {
+    value : any
 }
 
 interface ITempFileInfo {
