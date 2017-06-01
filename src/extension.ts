@@ -119,15 +119,23 @@ async function createTempParameterFile(jobTemplateInfo : batch.IJobTemplate, kno
 }
 
 async function promptForParameterValue(parameter : batch.IJobTemplateParameter) : Promise<any> {
+    let description = '';
+    if (parameter.metadata) {
+        description = ` | ${parameter.metadata.description}`;
+    }
+
     if (parameter.allowedValues) {
-        const selectedValue = await vscode.window.showQuickPick(parameter.allowedValues.map((v) => quickPickFor(v)));
+        const allowedValueQuickPicks = parameter.allowedValues.map((v) => quickPickFor(v));
+        const opts = { placeHolder: `${parameter.name}${description}` };
+        const selectedValue = await vscode.window.showQuickPick(allowedValueQuickPicks, opts);
         return selectedValue ? selectedValue.value : undefined;
     } else {
-        let description = '';
-        if (parameter.metadata) {
-            description = ` | ${parameter.metadata.description}`;
-        }
-        return await vscode.window.showInputBox({ prompt: `${parameter.name}${description} (${parameter.dataType})` });
+        const opts = {
+            prompt: `${parameter.name}${description} (${parameter.dataType})`,
+            value: parameter.defaultValue ? String(parameter.defaultValue) : undefined
+            // TODO: set the validateInput option to do range checking
+        };
+        return await vscode.window.showInputBox(opts);
     }
 }
 
