@@ -40,6 +40,14 @@ const jobTemplateJson = ' \
       "metadata": { \
         "description": "The id of the Batch pool on which to run the job" \
       } \
+    }, \
+    "testDefaulted": { \
+      "type": "string", \
+      "defaultValue" : "mydef" \
+    }, \
+    "testAllowed": { \
+      "type": "string", \
+      "allowedValues" : [ "alpha", "bravo", "charlie" ] \
     } \
   }, \
   "job": { \
@@ -81,7 +89,7 @@ suite('Batch Utilities Tests', () => {
 
     test('Parsing job template JSON surfaces the parameters', () => {
         const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJson);
-        assert.equal(template.parameters.length, 2);
+        assert.equal(template.parameters.length, 4);
         
         const jobIdParameter = template.parameters[0];
         assert.equal('jobId', jobIdParameter.name);
@@ -95,5 +103,31 @@ suite('Batch Utilities Tests', () => {
     test('A job template can be parsed even if it has no parameters', () => {
         const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJsonNoParams);
         assert.equal(template.parameters.length, 0);
+    });
+
+    test('Parsing job template JSON captures default values', () => {
+        const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJson);
+        
+        const parameter = template.parameters.find((p) => p.name == 'testDefaulted');
+
+        assert.notEqual(undefined, parameter);
+        if (parameter) {
+            assert.equal('mydef', parameter.defaultValue);
+        }
+    });
+
+    test('Parsing job template JSON captures allowed values', () => {
+        const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJson);
+        
+        const parameter = template.parameters.find((p) => p.name == 'testAllowed');
+
+        assert.notEqual(undefined, parameter);
+        if (parameter) {
+            assert.notEqual(undefined, parameter.allowedValues);
+            if (parameter.allowedValues) {
+                assert.equal(3, parameter.allowedValues.length);
+                assert.equal('alpha', parameter.allowedValues[0]);
+            }
+        }
     });
 });
