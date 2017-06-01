@@ -53,41 +53,32 @@ async function createJobImpl(doc : vscode.TextDocument) {
     }
 
     const templateFileName = doc.fileName;  // TODO: handle the case where the doc has never been saved
-    const templateFileRoot = path.stripExtension(templateFileName);
-    const templateFileDir = path.directory(templateFileName);
-
-    const parameterFileNames = [
-        templateFileRoot + '.parameters.json',
-        templateFileDir + '/parameters.json',
-        templateFileDir + '/jobparameters.json',
-        templateFileDir + '/parameters.job.json'
-    ];
-    const parameterFileName = parameterFileNames.find(s => fs.existsSync(s));
-
-    const hasParametersFile = (parameterFileName !== undefined);
-    const knownParametersText = parameterFileName ? fs.readFileSync(parameterFileName, 'utf8') : '{}';
-    const knownParameters = batch.parseParameters(knownParametersText);
-    const isKnownParameter = (n : string) => knownParameters.findIndex((p) => p.name == n) >= 0;
-    const anyUnknownParameters = jobTemplateInfo.parameters.findIndex((p) => !isKnownParameter(p.name)) >= 0;
 
     if (doc.isDirty) {
         await doc.save();
     }
 
-    const tempFileInfo = anyUnknownParameters ?  await createTempParameterFile(jobTemplateInfo, knownParameters) : undefined;
+    const parameterFile = await getParameterFile(templateFileName);
 
-    if (tempFileInfo && tempFileInfo.abandoned) {
+    const knownParametersText = getParameterJson(parameterFile);
+    const knownParameters = batch.parseParameters(knownParametersText);
+    const isKnownParameter = (n : string) => knownParameters.findIndex((p) => p.name == n) >= 0;
+    const anyUnknownParameters = jobTemplateInfo.parameters.findIndex((p) => !isKnownParameter(p.name)) >= 0;
+
+    const tempParameterInfo = anyUnknownParameters ?  await createTempParameterFile(jobTemplateInfo, knownParameters) : undefined;
+
+    if (tempParameterInfo && tempParameterInfo.abandoned) {
         return;
     }
 
-    const parameterFilePath = (tempFileInfo === undefined) ? parameterFileName : tempFileInfo.path;
+    const parameterFilePath = tempParameterInfo ? tempParameterInfo.path : parameterFile.path;
 
     output.show();
     output.appendLine('Creating Azure Batch job...');
 
     shelljs.exec(`az batch job create --template "${doc.fileName}" --parameters "${parameterFilePath}"`, { async: true }, (code : number, stdout : string, stderr : string) => {
-        if (tempFileInfo) {
-            fs.unlinkSync(tempFileInfo.path);
+        if (tempParameterInfo) {
+            fs.unlinkSync(tempParameterInfo.path);
         }
 
         if (code !== 0 || stderr) {  // CLI can return exit code 0 on failure... but GAH IT WRITES TO STDERR EVEN ON SUCCESS (the experimental feature warnings)
@@ -99,6 +90,44 @@ async function createJobImpl(doc : vscode.TextDocument) {
         output.appendLine("Done");
     });
 
+}
+
+async function getParameterFile(templateFileName : string) : Promise<IParameterFileInfo> {
+    const templateFileRoot = path.stripExtension(templateFileName);
+    const templateFileDir = path.directory(templateFileName);
+
+    const parameterFileNames = [
+        templateFileRoot + '.parameters.json',
+        templateFileDir + '/parameters.json',
+        templateFileDir + '/jobparameters.json',
+        templateFileDir + '/parameters.job.json'
+    ];
+    const parameterFileName = parameterFileNames.find(s => fs.existsSync(s));
+
+    if (!parameterFileName) {
+        return {
+            exists: false,
+            path: ''
+        };
+    }
+
+    const parametersDoc = vscode.workspace.textDocuments.find((d) => d.fileName == parameterFileName);  // TODO: path separators
+    if (parametersDoc && parametersDoc.isDirty) {
+        await parametersDoc.save();
+    }
+
+    return {
+        exists: true,
+        path: parameterFileName,
+        document: parametersDoc
+    };
+}
+
+function getParameterJson(parameterFile : IParameterFileInfo) : string {
+    if (parameterFile.exists) {
+        return parameterFile.document ? parameterFile.document.getText() : fs.readFileSync(parameterFile.path, 'utf8');
+    }
+    return '{}';
 }
 
 async function createTempParameterFile(jobTemplateInfo : batch.IJobTemplate, knownParameters : batch.IParameterValue[]) : Promise<ITempFileInfo | undefined> {
@@ -158,6 +187,12 @@ interface AllowedValueQuickPickItem extends vscode.QuickPickItem {
 interface ITempFileInfo {
     readonly abandoned : boolean;
     readonly path : string;
+}
+
+interface IParameterFileInfo {
+    readonly exists : boolean;
+    readonly path : string;
+    readonly document? : vscode.TextDocument;
 }
 
 function invokeAllThePythons() {
