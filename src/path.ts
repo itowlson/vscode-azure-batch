@@ -20,3 +20,12 @@ export function directory(filePath : string) : string {
 
     return filePath.substr(0, sepIndex);
 }
+
+export function equal(filePath1 : string, filePath2 : string) : boolean {
+    const fwd1 = filePath1.replace(/\\/g, '/');
+    const fwd2 = filePath2.replace(/\\/g, '/');
+    if (process.platform === 'win32') {
+        return fwd1.toLowerCase() == fwd2.toLowerCase();
+    }
+    return fwd1 == fwd2;
+}

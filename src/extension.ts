@@ -111,7 +111,7 @@ async function getParameterFile(templateFileName : string) : Promise<IParameterF
         };
     }
 
-    const parametersDoc = vscode.workspace.textDocuments.find((d) => d.fileName == parameterFileName);  // TODO: path separators
+    const parametersDoc = vscode.workspace.textDocuments.find((d) => path.equal(d.fileName, parameterFileName));
     if (parametersDoc && parametersDoc.isDirty) {
         await parametersDoc.save();
     }
