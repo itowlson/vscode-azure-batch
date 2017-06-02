@@ -24,13 +24,14 @@ export function activate(context: vscode.ExtensionContext) {
 
     let disposables = [
         //vscode.commands.registerCommand('merlin.invokeAllThePythons', invokeAllThePythons),
-        vscode.commands.registerCommand('merlin.itCreatesUsTheJobOrUsKillsItTheKitten', createJob)
+        vscode.commands.registerCommand('merlin.itCreatesUsTheJobOrUsKillsItTheKitten', createJob),
+        vscode.commands.registerCommand('merlin.createPool', createPool)
     ];
 
     disposables.forEach((d) => context.subscriptions.push(d), this);
 }
 
-function createJob() {
+function withActiveDocument(action: (doc : vscode.TextDocument) => void) {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
         return;
@@ -41,14 +42,22 @@ function createJob() {
         return;
     }
 
-    createJobImpl(doc);
+    action(doc);
 }
 
-async function createJobImpl(doc : vscode.TextDocument) {
+function createJob() {
+    withActiveDocument((doc) => createResourceImpl(doc, 'job'));
+}
 
-    const jobTemplateInfo = batch.parseJobTemplate(doc.getText());
-    if (!jobTemplateInfo) {
-        await vscode.window.showErrorMessage('Current file is not an Azure Batch job template.');  // TODO: support job JSON
+function createPool() {
+    withActiveDocument((doc) => createResourceImpl(doc, 'pool'));
+}
+
+async function createResourceImpl(doc : vscode.TextDocument, resourceType : batch.BatchResourceType) {
+
+    const templateInfo = batch.parseBatchTemplate(doc.getText(), resourceType);
+    if (!templateInfo) {
+        await vscode.window.showErrorMessage(`Current file is not an Azure Batch ${resourceType} template.`);  // TODO: support job JSON
         return;
     }
 
@@ -58,14 +67,14 @@ async function createJobImpl(doc : vscode.TextDocument) {
         await doc.save();
     }
 
-    const parameterFile = await getParameterFile(templateFileName);
+    const parameterFile = await getParameterFile(templateFileName, resourceType);
 
     const knownParametersText = getParameterJson(parameterFile);
     const knownParameters = batch.parseParameters(knownParametersText);
     const isKnownParameter = (n : string) => knownParameters.findIndex((p) => p.name == n) >= 0;
-    const anyUnknownParameters = jobTemplateInfo.parameters.findIndex((p) => !isKnownParameter(p.name)) >= 0;
+    const anyUnknownParameters = templateInfo.parameters.findIndex((p) => !isKnownParameter(p.name)) >= 0;
 
-    const tempParameterInfo = anyUnknownParameters ?  await createTempParameterFile(jobTemplateInfo, knownParameters) : undefined;
+    const tempParameterInfo = anyUnknownParameters ?  await createTempParameterFile(templateInfo, knownParameters) : undefined;
 
     if (tempParameterInfo && tempParameterInfo.abandoned) {
         return;
@@ -74,9 +83,9 @@ async function createJobImpl(doc : vscode.TextDocument) {
     const parameterFilePath = tempParameterInfo ? tempParameterInfo.path : parameterFile.path;
 
     output.show();
-    output.appendLine('Creating Azure Batch job...');
+    output.appendLine(`Creating Azure Batch ${resourceType}...`);
 
-    shelljs.exec(`az batch job create --template "${doc.fileName}" --parameters "${parameterFilePath}"`, { async: true }, (code : number, stdout : string, stderr : string) => {
+    shelljs.exec(`az batch ${resourceType} create --template "${doc.fileName}" --parameters "${parameterFilePath}"`, { async: true }, (code : number, stdout : string, stderr : string) => {
         if (tempParameterInfo) {
             fs.unlinkSync(tempParameterInfo.path);
         }
@@ -92,15 +101,15 @@ async function createJobImpl(doc : vscode.TextDocument) {
 
 }
 
-async function getParameterFile(templateFileName : string) : Promise<IParameterFileInfo> {
+async function getParameterFile(templateFileName : string, resourceType : batch.BatchResourceType) : Promise<IParameterFileInfo> {
     const templateFileRoot = path.stripExtension(templateFileName);
     const templateFileDir = path.directory(templateFileName);
 
     const parameterFileNames = [
         templateFileRoot + '.parameters.json',
-        templateFileDir + '/parameters.json',
-        templateFileDir + '/jobparameters.json',
-        templateFileDir + '/parameters.job.json'
+        templateFileDir + `/${resourceType}parameters.json`,
+        templateFileDir + `/parameters.${resourceType}.json`,
+        templateFileDir + '/parameters.json'
     ];
     const parameterFileName = parameterFileNames.find(s => fs.existsSync(s));
 
@@ -130,7 +139,7 @@ function getParameterJson(parameterFile : IParameterFileInfo) : string {
     return '{}';
 }
 
-async function createTempParameterFile(jobTemplateInfo : batch.IJobTemplate, knownParameters : batch.IParameterValue[]) : Promise<ITempFileInfo | undefined> {
+async function createTempParameterFile(jobTemplateInfo : batch.IBatchTemplate, knownParameters : batch.IParameterValue[]) : Promise<ITempFileInfo | undefined> {
     let parameterObject : any = {};
     for (const p of jobTemplateInfo.parameters) {
         const known = knownParameters.find((pv) => pv.name == p.name);
@@ -151,7 +160,7 @@ async function createTempParameterFile(jobTemplateInfo : batch.IJobTemplate, kno
     return { abandoned: false, path: tempFile.name };
 }
 
-async function promptForParameterValue(parameter : batch.IJobTemplateParameter) : Promise<any> {
+async function promptForParameterValue(parameter : batch.IBatchTemplateParameter) : Promise<any> {
     let description = '';
     if (parameter.metadata) {
         description = ` | ${parameter.metadata.description}`;

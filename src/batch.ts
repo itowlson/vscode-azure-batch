@@ -1,4 +1,4 @@
-export function parseJobTemplate(text : string) : IJobTemplate | null {
+export function parseBatchTemplate(text : string, resourceType : BatchResourceType) : IBatchTemplate | null {
     
     try {
 
@@ -7,29 +7,29 @@ export function parseJobTemplate(text : string) : IJobTemplate | null {
             return null;
         }
 
-        if (!jobject.job) {
+        if (!jobject[resourceType]) {
             return null;
         }
 
-        return parseJobTemplateCore(jobject);
+        return parseTemplateCore(jobject);
 
     } catch (SyntaxError) {
         return null;
     }
 }
 
-function parseJobTemplateCore(json : any) {
+function parseTemplateCore(json : any) {
     
-    const parameters : IJobTemplateParameter[] = [];
+    const parameters : IBatchTemplateParameter[] = [];
 
     for (const p in json.parameters || []) {
         const pval : any = json.parameters[p];
         parameters.push({
             name : p,
-            dataType : <JobTemplateParameterDataType>(pval['type']),
+            dataType : <BatchTemplateParameterDataType>(pval['type']),
             defaultValue : pval['defaultValue'],
             allowedValues : pval['allowedValues'],
-            metadata : <IJobTemplateParameterMetadata>(pval['metadata']),
+            metadata : <IBatchTemplateParameterMetadata>(pval['metadata']),
         })
     }
 
@@ -66,25 +66,27 @@ function parseParametersCore(json : any) : IParameterValue[] {
     return parameters;
 }
 
-export interface IJobTemplate {
-    readonly parameters : IJobTemplateParameter[];
+export interface IBatchTemplate {
+    readonly parameters : IBatchTemplateParameter[];
 }
 
-export interface IJobTemplateParameter {
+export interface IBatchTemplateParameter {
     readonly name : string;
-    readonly dataType : JobTemplateParameterDataType;
+    readonly dataType : BatchTemplateParameterDataType;
     readonly defaultValue? : any;
     readonly allowedValues? : any[];
-    readonly metadata? : IJobTemplateParameterMetadata;
+    readonly metadata? : IBatchTemplateParameterMetadata;
 }
 
-export interface IJobTemplateParameterMetadata {
+export interface IBatchTemplateParameterMetadata {
     readonly description : string;
 }
 
-type JobTemplateParameterDataType = 'int' | 'string' | 'bool';
+export type BatchTemplateParameterDataType = 'int' | 'string' | 'bool';
 
 export interface IParameterValue {
     readonly name : string;
     readonly value : any;
 }
+
+export type BatchResourceType = 'job' | 'pool';

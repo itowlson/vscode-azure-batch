@@ -12,7 +12,8 @@
   ],
   "activationEvents": [
     "onCommand:merlin.invokeAllThePythons",
-    "onCommand:merlin.itCreatesUsTheJobOrUsKillsItTheKitten"
+    "onCommand:merlin.itCreatesUsTheJobOrUsKillsItTheKitten",
+    "onCommand:merlin.createPool"
   ],
   "main": "./out/src/extension",
   "contributes": {
@@ -24,8 +25,13 @@
       },
       {
         "command": "merlin.itCreatesUsTheJobOrUsKillsItTheKitten",
-        "title": "Create Job",
-        "category": "Azure Batch"
+        "title": "Create Batch Job",
+        "category": "Azure"
+      },
+      {
+        "command": "merlin.createPool",
+        "title": "Create Batch Pool",
+        "category": "Azure"
       }
     ]
   },

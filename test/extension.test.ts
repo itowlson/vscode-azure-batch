@@ -73,22 +73,22 @@ const jobTemplateJsonNoParams = ' \
 suite('Batch Utilities Tests', () => {
 
     test('Parsing a non-JSON document as a job template fails', () => {
-        const result = batch.parseJobTemplate(nonJson);
+        const result = batch.parseBatchTemplate(nonJson, 'job');
         assert.equal(result, null);
     });
 
     test('Parsing a job JSON as a job template fails', () => {
-        const result = batch.parseJobTemplate(jobJson);
+        const result = batch.parseBatchTemplate(jobJson, 'job');
         assert.equal(result, null);
     });
 
     test('Parsing job template JSON as a job template succeeds', () => {
-        const template = batch.parseJobTemplate(jobTemplateJson);
+        const template = batch.parseBatchTemplate(jobTemplateJson, 'job');
         assert.notEqual(template, null);
     });
 
     test('Parsing job template JSON surfaces the parameters', () => {
-        const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJson);
+        const template = <batch.IBatchTemplate>batch.parseBatchTemplate(jobTemplateJson, 'job');
         assert.equal(template.parameters.length, 4);
         
         const jobIdParameter = template.parameters[0];
@@ -101,12 +101,12 @@ suite('Batch Utilities Tests', () => {
     });
 
     test('A job template can be parsed even if it has no parameters', () => {
-        const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJsonNoParams);
+        const template = <batch.IBatchTemplate>batch.parseBatchTemplate(jobTemplateJsonNoParams, 'job');
         assert.equal(template.parameters.length, 0);
     });
 
     test('Parsing job template JSON captures default values', () => {
-        const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJson);
+        const template = <batch.IBatchTemplate>batch.parseBatchTemplate(jobTemplateJson, 'job');
         
         const parameter = template.parameters.find((p) => p.name == 'testDefaulted');
 
@@ -117,7 +117,7 @@ suite('Batch Utilities Tests', () => {
     });
 
     test('Parsing job template JSON captures allowed values', () => {
-        const template = <batch.IJobTemplate>batch.parseJobTemplate(jobTemplateJson);
+        const template = <batch.IBatchTemplate>batch.parseBatchTemplate(jobTemplateJson, 'job');
         
         const parameter = template.parameters.find((p) => p.name == 'testAllowed');
 
