@@ -18,7 +18,7 @@ export function parseBatchTemplate(text : string, resourceType : BatchResourceTy
     }
 }
 
-function parseTemplateCore(json : any) {
+function parseTemplateCore(json : any) : IBatchTemplate {
     
     const parameters : IBatchTemplateParameter[] = [];
 

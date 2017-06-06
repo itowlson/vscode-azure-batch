@@ -51,9 +51,13 @@ const jobTemplateJson = ' \
     } \
   }, \
   "job": { \
-    "id" : "wonderjob", \
-    "poolInfo" : { \
-        "poolId" : "wonderpool" \
+    "type": "Microsoft.Batch/batchAccounts/jobs", \
+    "apiVersion": "2016-12-01", \
+    "properties": { \
+      "id": "[parameters(\'jobId\')]", \
+      "poolInfo" : { \
+          "poolId" : "wonderpool" \
+      } \
     } \
   } \
 } \
@@ -62,9 +66,37 @@ const jobTemplateJson = ' \
 const jobTemplateJsonNoParams = ' \
 { \
   "job": { \
-    "id" : "wonderjob", \
-    "poolInfo" : { \
-        "poolId" : "wonderpool" \
+    "type": "Microsoft.Batch/batchAccounts/jobs", \
+    "apiVersion": "2016-12-01", \
+    "properties": { \
+      "id" : "wonderjob", \
+      "poolInfo" : { \
+          "poolId" : "wonderpool" \
+      } \
+    } \
+  } \
+} \
+';
+
+const poolTemplateJson = ' \
+{ \
+  "parameters": { \
+    "vmSize": { \
+      "type": "string", \
+      "allowedValues" : [ "STANDARD_A3", "STANDARD_A4" ], \
+      "metadata": { \
+        "description": "The size of virtual machine to use" \
+      } \
+    } \
+  }, \
+  "pool": { \
+    "type": "Microsoft.Batch/batchAccounts/pools", \
+    "apiVersion": "2016-12-01", \
+    "properties": { \
+      "id": "superduperpool", \
+      "vmSize": "[parameters(\'vmSize\')]", \
+      "targetDedicated": 4, \
+      "cloudServiceConfiguration": { "osFamily": 4 } \
     } \
   } \
 } \
@@ -129,5 +161,12 @@ suite('Batch Utilities Tests', () => {
                 assert.equal('alpha', parameter.allowedValues[0]);
             }
         }
+    });
+
+    test('Parsing pool template JSON surfaces the parameters', () => {
+        const template = <batch.IBatchTemplate>batch.parseBatchTemplate(poolTemplateJson, 'pool');
+        assert.equal(template.parameters.length, 1);
+        
+        assert.equal('vmSize', template.parameters[0].name);
     });
 });
